@@ -41,18 +41,89 @@ class Validator {
     }
     
     /**
-     * Checks if an input data is a date in format YYYY-MM-DD
+     * Reformats the supplied format to a valid date format
+     * for example YYYY-MM-DD to Y-m-d or YY-MM-DD to y-m-d
+     * 
+     * @param $format an input data to check
+     * 
+     * @return a valid date format
+     */
+    private function reformat($format) {
+        $chars = str_split($format);
+        $date_format = '';
+        foreach ($chars as $char) {
+            if ((ctype_alpha($char) && !stristr($date_format, $char)) || ctype_punct($char)) {
+                if ($char !== 'Y') {
+                    $char = strtolower($char);
+                } elseif (substr_count($format, 'Y') == 2) {
+                    $char = 'y';
+                }
+                $date_format = $date_format.$char;
+            }
+        }
+        return $date_format;
+    }
+    
+    /**
+     * Checks if an input data is a date in a specified format
      * 
      * @param $input an input data to check
+     * @param $format a date format
      * 
      * @return true if an input is a valid date, false otherwise
      */
-    private function is_date($input) {
-        if(preg_match("/^\d{4}-\d{2}-\d{2}$/", $input) === 1) {
-            return checkdate((int)substr($input, 5, 2), (int)substr($input, -2, 2), (int)substr($input, 0, 4));
-        } else {
-            return false;
+    private function is_date($input, $format) {
+        if (strlen($input) == strlen($format)) {
+            $date_array = $this->extract_date($input, $format);
+            return checkdate($date_array[1], $date_array[0], $date_array[2]);
         }
+        return false;
+    }
+    
+    /**
+     * Extracts parts of an input that represent numerical 
+     * values of a day, a month and a year in supplied format
+     * 
+     * @param $input an input data
+     * @param $format a date format
+     * 
+     * @return an array that contains day, month and year in that order, 
+     * false if size of input and format are different
+     */
+    private function extract_date($input, $format) {
+        $format_chars = str_split(strtolower($format));
+        $input_chars = str_split($input);
+        $day = '';
+        $month = '';
+        $year = '';
+        if (count($format_chars) == count($input_chars)) {
+            for ($i = 0; $i < count($format_chars); $i++) {
+                if ($format_chars[$i] === 'd') {
+                    $day = $day.$input_chars[$i];
+                } elseif ($format_chars[$i] === 'm') {
+                    $month = $month.$input_chars[$i];
+                } elseif ($format_chars[$i] === 'y') {
+                    $year = $year.$input_chars[$i];
+                }
+            }
+            return array($day, $month, $year);
+        }
+        return false;
+    }
+    
+    /**
+     * Compares input data with min or max date in supplied format
+     * 
+     * @param $input an input data that is a date
+     * @param $date min or max date for comparison
+     * @param $format a date format
+     * 
+     * @return an integer value that is the difference between dates
+     */
+    private function compare_dates($input, $date, $format) {
+        $i = $this->extract_date($input, $format);
+        $d = $this->extract_date($date, $format);
+        return "$i[2].$i[1].$i[0]" - "$d[2].$d[1].$d[0]";
     }
     
     /**
@@ -85,8 +156,8 @@ class Validator {
         require "error_messages_$this->language.php";
         if($type === 'date') {
             $current_date = new DateTime("now");
-            $min_date = (clone $current_date)->modify("+$min years")->format('Y-m-d');
-            $max_date = (clone $current_date)->modify("+$max years")->format('Y-m-d');
+            $min_date = (clone $current_date)->modify("+$min years")->format($this->reformat($format));
+            $max_date = (clone $current_date)->modify("+$max years")->format($this->reformat($format));
         }
         switch(true) {
             case ($required && !isset($input)): return array(false, $error_empty);
@@ -94,9 +165,9 @@ class Validator {
             case ($type === 'number' && !is_numeric($input)): return array(false, $error_number);
             case ($type === 'number' && ($input + 0) < $min): return array(false, $error_min);
             case ($type === 'number' && ($input + 0) > $max): return array(false, $error_max);
-            case ($type === 'date' && !$this->is_date($input)): return array(false, $error_date);
-            case ($type === 'date' && $input < $min_date): return array(false, $error_early);
-            case ($type === 'date' && $input > $max_date): return array(false, $error_late.$max_date.'.');
+            case ($type === 'date' && !$this->is_date($input,$format)): return array(false, $error_date);
+            case ($type === 'date' && $this->compare_dates($input, $min_date, $format) < 0): return array(false, $error_early);
+            case ($type === 'date' && $this->compare_dates($input, $max_date, $format) > 0): return array(false, $error_late.$max_date.'.');
             case ($type === 'time' && !$this->regex($input, $regex)): return array(false, $error_time);
             case ($type === 'text' && !is_string($input)): return array(false, $error_text);
             case ($type === 'text' && $min && strlen($input) < $min): return array(false, $error_min_char);
