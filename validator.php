@@ -25,7 +25,7 @@
 
 class Validator {
     /**
-     * Language version of the user interface
+     * Language version of the error messages
      * 
      * @var language
      */
