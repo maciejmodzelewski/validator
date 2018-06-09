@@ -24,13 +24,29 @@
 */
 
 class Validator {
-    // language version of the user interface
-    private $lang;
+    /**
+     * Language version of the user interface
+     * 
+     * @var language
+     */
+    private $language;
     
+    /**
+     * Constructor of class Validator
+     * 
+     * @param $lang language version of the user interface
+     */
     public function __construct($lang) {
-        $lang = $lang;
+        $this->language = $lang;
     }
     
+    /**
+     * Checks if an input data is a date in format YYYY-MM-DD
+     * 
+     * @param $input an input data to check
+     * 
+     * @return true if an input is a valid date, false otherwise
+     */
     private function is_date($input) {
         if(preg_match("/^\d{4}-\d{2}-\d{2}$/", $input) === 1) {
             return checkdate((int)substr($input, 5, 2), (int)substr($input, -2, 2), (int)substr($input, 0, 4));
@@ -39,14 +55,34 @@ class Validator {
         }
     }
     
+    /**
+     * Checks an input data using provided regular expression
+     * 
+     * @param $input an input data to check
+     * @param $regex a regular expression (PCRE)
+     * 
+     * @return the checked input if it matches regex, false otherwise
+     */
     private function regex($input, $regex) {
         return filter_var($input, FILTER_VALIDATE_REGEXP, array("options"=>array("regexp"=>$regex))) === $input;
     }
     
-    public function inputValidator($input, $required, $type, $min=false, $max=false, $format='', $regex="/[\w\W]*/") {
+    /**
+     * Validates an input data and sanitises the output
+     * 
+     * @param $input an input data for validation
+     * @param $required true|false - indicate whether the input is required or not
+     * @param $type 'number'|'date'|'time'|'text' - the type of the input data
+     * @param $min numeric value|false if not required (default) - a minimum value for the input data
+     * @param $max numeric value|false if not required (default) - a maximum value for the input data
+     * @param $format 'DATE-FORMAT'|empty string (default) - a date format related to is_date() output
+     * @param $regex  'PCRE'|'[\w\W]*' (default)- a regular expression (PCRE)
+     * 
+     * @return array(false, $error_message)|array(true, $sanitised_input)
+     */
+    public function input_validator($input, $required, $type, $min=false, $max=false, $format='', $regex="/[\w\W]*/") {
         $input = trim($input);
-        global $lang;
-        require "error_messages_$lang.php";
+        require "error_messages_$this->language.php";
         if($type === 'date') {
             $current_date = new DateTime("now");
             $min_date = (clone $current_date)->modify("+$min years")->format('Y-m-d');
